@@ -104,12 +104,19 @@ func (m *PacketFactoryCopy) NewPacket(header *rtp.Header, payload []byte, rtxSsr
 		}
 	}
 
+	defer func() {
+		m.headerPool.Put(header)
+		m.payloadPool.Put(payload)
+	}()
+
 	return p, nil
 }
 
 func (m *PacketFactoryCopy) releasePacket(header *rtp.Header, payload *[]byte) {
 	m.headerPool.Put(header)
-	m.payloadPool.Put(payload)
+	if payload != nil {
+		m.payloadPool.Put(payload)
+	}
 }
 
 // PacketFactoryNoOp is a PacketFactory implementation that doesn't copy packets
