@@ -62,6 +62,8 @@ type SenderInterceptor struct {
 
 	recorder   *Recorder
 	packetChan chan packet
+
+	twccSSRC uint32
 }
 
 // An Option is a function that can be used to configure a SenderInterceptor.
