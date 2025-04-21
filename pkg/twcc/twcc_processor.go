@@ -69,14 +69,20 @@ func (t *NoopTWCCProcessor) Process(size int, _ []byte, _ []interceptor.RTPHeade
 }
 
 func (t *Processor) Processor() *Processor {
+	t.m.Lock()
+	defer t.m.Unlock()
 	return t
 }
 
 func (t *Processor) BindTWCCRTCPWriter(writer interceptor.RTCPWriter) {
+	t.m.Lock()
+	defer t.m.Unlock()
 	t.twccRTCPWRiter = writer
 }
 
 func (t *Processor) Process(i int, buf []byte, ext []interceptor.RTPHeaderExtension) (int, error) {
+	t.m.Lock()
+	defer t.m.Unlock()
 
 	if !t.twccHdrExtSet {
 		for _, e := range ext {
@@ -182,7 +188,9 @@ func (t *Processor) loop() {
 			}
 
 			if _, err := t.twccRTCPWRiter.Write(pkts, nil); err != nil {
-				t.log.Error(err.Error())
+				// t.log.Error(err.Error())
+				close(t.close)
+				return
 			}
 		}
 	}
