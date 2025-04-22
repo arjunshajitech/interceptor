@@ -66,7 +66,7 @@ func TestReceivedBuffer(t *testing.T) {
 			}
 			assertMissing := func(skipLastN uint16, nums []uint16) {
 				t.Helper()
-				missing := rl.missingSeqNumbers(skipLastN)
+				missing := rl.missingSeqNumbers(skipLastN, nil)
 				if missing == nil {
 					missing = []uint16{}
 				}

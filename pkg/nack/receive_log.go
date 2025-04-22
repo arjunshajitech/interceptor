@@ -97,7 +97,7 @@ func (s *receiveLog) get(seq uint16) bool {
 	return s.getReceived(seq)
 }
 
-func (s *receiveLog) missingSeqNumbers(skipLastN uint16) []uint16 {
+func (s *receiveLog) missingSeqNumbers(skipLastN uint16, missingPacketSeqNums []uint16) []uint16 {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
@@ -107,7 +107,6 @@ func (s *receiveLog) missingSeqNumbers(skipLastN uint16) []uint16 {
 		return nil
 	}
 
-	missingPacketSeqNums := make([]uint16, 0)
 	for i := s.lastConsecutive + 1; i != until+1; i++ {
 		if !s.getReceived(i) {
 			missingPacketSeqNums = append(missingPacketSeqNums, i)

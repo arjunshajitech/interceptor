@@ -144,6 +144,8 @@ func (n *GeneratorInterceptor) loop(rtcpWriter interceptor.RTCPWriter) {
 	defer n.wg.Done()
 
 	senderSSRC := rand.Uint32() // #nosec
+	missingPacketSeqNums := make([]uint16, 0, 32)
+	filteredMissingPacket := make([]uint16, 0, 32)
 
 	ticker := time.NewTicker(n.interval)
 	defer ticker.Stop()
@@ -155,7 +157,7 @@ func (n *GeneratorInterceptor) loop(rtcpWriter interceptor.RTCPWriter) {
 				defer n.receiveLogsMu.Unlock()
 
 				for ssrc, receiveLog := range n.receiveLogs {
-					missing := receiveLog.missingSeqNumbers(n.skipLastN)
+					missing := receiveLog.missingSeqNumbers(n.skipLastN, missingPacketSeqNums)
 
 					if len(missing) == 0 || n.nackCountLogs[ssrc] == nil {
 						n.nackCountLogs[ssrc] = map[uint16]uint16{}
@@ -164,22 +166,21 @@ func (n *GeneratorInterceptor) loop(rtcpWriter interceptor.RTCPWriter) {
 						continue
 					}
 
-					filteredMissing := []uint16{}
 					if n.maxNacksPerPacket > 0 {
 						for _, missingSeq := range missing {
 							if n.nackCountLogs[ssrc][missingSeq] < n.maxNacksPerPacket {
-								filteredMissing = append(filteredMissing, missingSeq)
+								filteredMissingPacket = append(filteredMissingPacket, missingSeq)
 							}
 							n.nackCountLogs[ssrc][missingSeq]++
 						}
 					} else {
-						filteredMissing = missing
+						filteredMissingPacket = missing
 					}
 
 					nack := &rtcp.TransportLayerNack{
 						SenderSSRC: senderSSRC,
 						MediaSSRC:  ssrc,
-						Nacks:      rtcp.NackPairsFromSequenceNumbers(filteredMissing),
+						Nacks:      rtcp.NackPairsFromSequenceNumbers(filteredMissingPacket),
 					}
 
 					for nackSeq := range n.nackCountLogs[ssrc] {
@@ -196,9 +197,14 @@ func (n *GeneratorInterceptor) loop(rtcpWriter interceptor.RTCPWriter) {
 						}
 					}
 
-					if len(filteredMissing) == 0 {
+					if len(filteredMissingPacket) == 0 {
+						filteredMissingPacket = filteredMissingPacket[:0]
+						missingPacketSeqNums = missingPacketSeqNums[:0]
 						continue
 					}
+
+					missingPacketSeqNums = missingPacketSeqNums[:0]
+					filteredMissingPacket = filteredMissingPacket[:0]
 
 					if _, err := rtcpWriter.Write([]rtcp.Packet{nack}, interceptor.Attributes{}); err != nil {
 						n.log.Warnf("failed sending nack: %+v", err)
